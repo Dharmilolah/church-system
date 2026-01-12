@@ -129,30 +129,31 @@
                 console.log('Auth successful');
 
                 // Get user profile
-                const { data: userData, error: userError } = await sb
-                    .from('profiles')
-                    .select(`
-                        id,
-                        role,
-                        church_id,
-                        churches (
-                            id,
-                            name,
-                            church_code
-                        )
-                    `)
-                    .eq('id', authData.user.id)
-                    .single();
+// Get user profile
+const { data: userData, error: userError } = await sb
+    .from('profiles')
+    .select('id, role, church_id')
+    .eq('id', authData.user.id)
+    .single();
 
-                if (userError) throw new Error(`Profile error: ${userError.message}`);
-                if (!userData || !userData.churches) throw new Error('User not linked to a church');
+if (userError) throw new Error(`Profile error: ${userError.message}`);
 
-                state.user = {
-                    id: userData.id,
-                    email: authData.user.email,
-                    role: userData.role,
-                    name: authData.user.email.split('@')[0]
-                };
+// Get church data separately
+const { data: churchData, error: churchError } = await sb
+    .from('churches')
+    .select('id, name, church_code')
+    .eq('id', userData.church_id)
+    .single();
+
+if (churchError || !churchData) throw new Error('User not linked to a church');
+
+state.user = {
+    id: userData.id,
+    email: authData.user.email,
+    role: userData.role,
+    name: authData.user.email.split('@')[0],
+    church: churchData
+};
 
                 state.church = userData.churches;
 
