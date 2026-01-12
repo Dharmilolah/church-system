@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Canaan Baptist Church - Accounting System</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        /* Prevent FOUC (Flash of Unstyled Content) */
-        body { opacity: 0; transition: opacity 0.3s; }
-        body.loaded { opacity: 1; }
-    </style>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
     
@@ -55,61 +50,40 @@
     <!-- Main App -->
     <div id="app" class="p-6 hidden"></div>
 
-   <script>
-    console.log('🚀 Script started loading...');
+    <script>
+        // Global Supabase client - DECLARED ONLY ONCE
+        let supabaseClient;
 
-    // Wait for DOM and scripts to load
-    window.addEventListener('load', function() {
-        console.log('📄 Page loaded');
-        document.body.classList.add('loaded');
-        console.log('✅ Body class added');
-        
-        // Check if Supabase is available
-        if (typeof window.supabase === 'undefined') {
-            console.error('❌ CRITICAL: Supabase library not loaded!');
-            document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1 style="color: red;">Error: Supabase library failed to load</h1><p>Check your internet connection and disable ad blockers.</p></div>';
-            return;
-        }
-        
-        console.log('✅ Supabase library detected');
-        initializeApp();
-    });
+        // Wait for DOM and scripts to load
+        window.addEventListener('load', function() {
+            console.log('Page loaded');
+            initializeApp();
+        });
 
-    let supabase;
+        function initializeApp() {
+            console.log('Initializing...');
+            
+            // Check if Supabase loaded
+            if (!window.supabase) {
+                alert('Failed to load Supabase. Please refresh the page.');
+                return;
+            }
 
-    function initializeApp() {
-        console.log('🔧 Initializing app...');
-        
-        try {
-            // ============================================
-            // SUPABASE CONFIGURATION
-            // ============================================
+            // Initialize Supabase
             const SUPABASE_URL = 'https://isvqwielxbbmplwpzaob.supabase.co';
             const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzdnF3aWVseGJibXBsd3B6YW9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwNDkyNzIsImV4cCI6MjA4MzYyNTI3Mn0.G3M9RZTfxyguC9-bt-HIVfCAgQR3c0epqfm4w_ureq4';
             
-            console.log('🔑 Creating Supabase client...');
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            console.log('✅ Supabase initialized successfully');
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            console.log('✅ Supabase initialized');
 
             // Check for existing session
-            supabase.auth.getSession().then(({ data: { session } }) => {
+            supabaseClient.auth.getSession().then(({ data: { session } }) => {
                 if (session) {
                     document.getElementById('loginEmail').value = session.user.email;
-                    console.log('Found existing session for:', session.user.email);
                 }
-                console.log('✅ Session check complete');
-            }).catch(err => {
-                console.error('⚠️ Session check error:', err);
             });
-            
-        } catch (error) {
-            console.error('❌ CRITICAL ERROR in initializeApp:', error);
-            alert('Failed to initialize: ' + error.message);
         }
-    }
 
-    // Rest of your code stays the same...
-    // (Keep all the other functions below)
         // ============================================
         // STATE MANAGEMENT
         // ============================================
@@ -148,23 +122,19 @@
             showLoading(true);
 
             try {
-                console.log('🔐 Attempting login for:', email);
+                console.log('Attempting login...');
 
-                // Sign in with Supabase Auth
-                const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
                     email: email,
                     password: password
                 });
 
-                if (authError) {
-                    console.error('❌ Auth error:', authError);
-                    throw authError;
-                }
+                if (authError) throw authError;
 
-                console.log('✅ Auth successful, user ID:', authData.user.id);
+                console.log('Auth successful');
 
-                // Get user profile with church data
-                const { data: userData, error: userError } = await supabase
+                // Get user profile
+                const { data: userData, error: userError } = await supabaseClient
                     .from('profiles')
                     .select(`
                         id,
@@ -179,18 +149,9 @@
                     .eq('id', authData.user.id)
                     .single();
 
-                if (userError) {
-                    console.error('❌ Profile fetch error:', userError);
-                    throw new Error(`Profile error: ${userError.message}`);
-                }
+                if (userError) throw new Error(`Profile error: ${userError.message}`);
+                if (!userData || !userData.churches) throw new Error('User not linked to a church');
 
-                console.log('✅ Profile fetched:', userData);
-
-                if (!userData || !userData.churches) {
-                    throw new Error('User not linked to a church. Please contact admin.');
-                }
-
-                // Set user and church
                 state.user = {
                     id: userData.id,
                     email: authData.user.email,
@@ -200,26 +161,19 @@
 
                 state.church = userData.churches;
 
-                console.log('✅ User state set:', state.user);
-                console.log('✅ Church state set:', state.church);
-
                 // Get or create branch
-                const { data: branches, error: branchError } = await supabase
+                const { data: branches, error: branchError } = await supabaseClient
                     .from('branches')
                     .select('*')
                     .eq('church_id', state.church.id)
                     .limit(1);
 
-                if (branchError) {
-                    console.error('❌ Branch fetch error:', branchError);
-                    throw branchError;
-                }
+                if (branchError) throw branchError;
 
                 if (branches && branches.length > 0) {
                     state.branch = branches[0];
                 } else {
-                    // Create default branch
-                    const { data: newBranch, error: createError } = await supabase
+                    const { data: newBranch, error: createError } = await supabaseClient
                         .from('branches')
                         .insert({
                             church_id: state.church.id,
@@ -233,23 +187,17 @@
                     state.branch = newBranch;
                 }
 
-                console.log('✅ Branch set:', state.branch);
-
-                // Load initial data
                 await loadData();
 
-                // Hide login, show app
                 document.getElementById('loginModal').classList.add('hidden');
                 document.getElementById('app').classList.remove('hidden');
                 showLoading(false);
                 render();
 
-                console.log('✅ Login complete!');
-
             } catch (error) {
-                console.error('❌ Login failed:', error);
+                console.error('Login failed:', error);
                 showLoading(false);
-                showError(errorDiv, error.message || 'Login failed. Please check your credentials.');
+                showError(errorDiv, error.message || 'Login failed');
             }
         }
 
@@ -258,10 +206,8 @@
         // ============================================
         async function loadData() {
             try {
-                console.log('📊 Loading data for church:', state.church.id);
-
-                // Load categories filtered by church
-                const { data: cats, error: catsError } = await supabase
+                // Load categories
+                const { data: cats, error: catsError } = await supabaseClient
                     .from('categories')
                     .select('*')
                     .eq('church_id', state.church.id)
@@ -269,15 +215,13 @@
 
                 if (catsError) throw catsError;
                 state.categories = cats || [];
-                console.log('✅ Loaded categories:', state.categories.length);
 
-                // If no categories exist, create defaults
                 if (state.categories.length === 0) {
                     await createDefaultCategories();
                 }
 
-                // Load transactions filtered by branch
-                const { data: txns, error: txnsError } = await supabase
+                // Load transactions
+                const { data: txns, error: txnsError } = await supabaseClient
                     .from('transactions')
                     .select('*')
                     .eq('branch_id', state.branch.id)
@@ -285,10 +229,9 @@
 
                 if (txnsError) throw txnsError;
                 state.transactions = txns || [];
-                console.log('✅ Loaded transactions:', state.transactions.length);
 
-                // Load tithes filtered by branch
-                const { data: tithes, error: tithesError } = await supabase
+                // Load tithes
+                const { data: tithes, error: tithesError } = await supabaseClient
                     .from('tithe_records')
                     .select('*')
                     .eq('branch_id', state.branch.id)
@@ -296,10 +239,9 @@
 
                 if (tithesError) throw tithesError;
                 state.tithes = tithes || [];
-                console.log('✅ Loaded tithes:', state.tithes.length);
 
-                // Load members filtered by church
-                const { data: members, error: membersError } = await supabase
+                // Load members
+                const { data: members, error: membersError } = await supabaseClient
                     .from('members')
                     .select('*')
                     .eq('church_id', state.church.id)
@@ -307,10 +249,9 @@
 
                 if (membersError) throw membersError;
                 state.members = members || [];
-                console.log('✅ Loaded members:', state.members.length);
 
             } catch (error) {
-                console.error('❌ Error loading data:', error);
+                console.error('Error loading data:', error);
                 alert('Error loading data: ' + error.message);
             }
         }
@@ -326,15 +267,12 @@
                 { name: 'Maintenance', type: 'expense', church_id: state.church.id }
             ];
 
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('categories')
                 .insert(defaults)
                 .select();
 
-            if (!error) {
-                state.categories = data;
-                console.log('✅ Created default categories');
-            }
+            if (!error) state.categories = data;
         }
 
         // ============================================
@@ -352,7 +290,7 @@
             }
 
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('transactions')
                     .insert({
                         church_id: state.church.id,
@@ -370,8 +308,6 @@
                 if (error) throw error;
 
                 state.transactions.unshift(data);
-                
-                // Reset form
                 state.form = {
                     type: 'income',
                     category: '',
@@ -381,10 +317,9 @@
                 };
 
                 render();
-                alert('✅ Transaction added successfully!');
+                alert('✅ Transaction added!');
             } catch (error) {
-                console.error('Error adding transaction:', error);
-                alert('Error adding transaction: ' + error.message);
+                alert('Error: ' + error.message);
             }
         }
 
@@ -392,18 +327,16 @@
             if (!confirm('Delete this transaction?')) return;
 
             try {
-                const { error } = await supabase
+                const { error } = await supabaseClient
                     .from('transactions')
                     .delete()
                     .eq('id', id);
 
                 if (error) throw error;
-
                 state.transactions = state.transactions.filter(t => t.id !== id);
                 render();
             } catch (error) {
-                console.error('Error deleting transaction:', error);
-                alert('Error deleting transaction: ' + error.message);
+                alert('Error: ' + error.message);
             }
         }
 
@@ -421,7 +354,7 @@
             }
 
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('tithe_records')
                     .insert({
                         church_id: state.church.id,
@@ -439,10 +372,9 @@
                 state.tithes.unshift(data);
                 document.getElementById('titheAmount').value = '';
                 render();
-                alert('✅ Tithe recorded successfully!');
+                alert('✅ Tithe recorded!');
             } catch (error) {
-                console.error('Error recording tithe:', error);
-                alert('Error recording tithe: ' + error.message);
+                alert('Error: ' + error.message);
             }
         }
 
@@ -450,18 +382,16 @@
             if (!confirm('Delete this tithe record?')) return;
 
             try {
-                const { error } = await supabase
+                const { error } = await supabaseClient
                     .from('tithe_records')
                     .delete()
                     .eq('id', id);
 
                 if (error) throw error;
-
                 state.tithes = state.tithes.filter(t => t.id !== id);
                 render();
             } catch (error) {
-                console.error('Error deleting tithe:', error);
-                alert('Error deleting tithe: ' + error.message);
+                alert('Error: ' + error.message);
             }
         }
 
@@ -473,7 +403,7 @@
             if (!name || !name.trim()) return;
 
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from('members')
                     .insert({
                         church_id: state.church.id,
@@ -486,10 +416,9 @@
 
                 state.members.push(data);
                 render();
-                alert('✅ Member added successfully!');
+                alert('✅ Member added!');
             } catch (error) {
-                console.error('Error adding member:', error);
-                alert('Error adding member: ' + error.message);
+                alert('Error: ' + error.message);
             }
         }
 
@@ -514,8 +443,8 @@
         }
 
         function logout() {
-            if (confirm('Are you sure you want to logout?')) {
-                supabase.auth.signOut();
+            if (confirm('Logout?')) {
+                supabaseClient.auth.signOut();
                 location.reload();
             }
         }
@@ -536,12 +465,9 @@
         function getMonthlyStats() {
             const now = new Date();
             const currentMonth = state.selectedMonth || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-            
             const filtered = state.transactions.filter(t => t.date.startsWith(currentMonth));
-            
             const income = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0);
             const expenses = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0);
-            
             return { income, expenses, balance: income - expenses, count: filtered.length };
         }
 
@@ -549,7 +475,6 @@
             const income = state.transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0);
             const expenses = state.transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0);
             const totalTithes = state.tithes.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-            
             return { income, expenses, balance: income - expenses, totalTithes };
         }
 
@@ -570,7 +495,6 @@
             if (!state.user) return;
 
             app.innerHTML = `
-                <!-- Header -->
                 <div class="bg-white rounded-lg shadow-xl p-6 mb-6">
                     <div class="flex justify-between items-center">
                         <div>
@@ -583,21 +507,17 @@
                     </div>
                 </div>
 
-                <!-- Navigation -->
                 <div class="bg-white rounded-lg shadow-xl p-4 mb-6">
                     <div class="flex gap-2 flex-wrap">
                         ${['dashboard', 'transactions', 'tithe', 'reports'].map(tab => `
                             <button onclick="switchTab('${tab}')" 
                                 class="px-6 py-3 rounded-lg font-medium transition ${state.currentTab === tab ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
-                                ${tab === 'dashboard' ? '📊 Dashboard' : 
-                                  tab === 'transactions' ? '💰 Transactions' : 
-                                  tab === 'tithe' ? '📖 Tithes' : '📈 Reports'}
+                                ${tab === 'dashboard' ? '📊 Dashboard' : tab === 'transactions' ? '💰 Transactions' : tab === 'tithe' ? '📖 Tithes' : '📈 Reports'}
                             </button>
                         `).join('')}
                     </div>
                 </div>
 
-                <!-- Content -->
                 ${state.currentTab === 'dashboard' ? renderDashboard() : 
                   state.currentTab === 'transactions' ? renderTransactions() :
                   state.currentTab === 'tithe' ? renderTithe() :
@@ -608,26 +528,24 @@
         }
 
         function renderDashboard() {
-            const monthlyStats = getMonthlyStats();
-            const allTimeStats = getAllTimeStats();
-
+            const stats = getAllTimeStats();
             return `
                 <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                     <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-xl p-6 text-white">
                         <div class="text-sm opacity-90 mb-2">Total Income</div>
-                        <div class="text-3xl font-bold">${formatCurrency(allTimeStats.income)}</div>
+                        <div class="text-3xl font-bold">${formatCurrency(stats.income)}</div>
                     </div>
                     <div class="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-xl p-6 text-white">
                         <div class="text-sm opacity-90 mb-2">Total Expenses</div>
-                        <div class="text-3xl font-bold">${formatCurrency(allTimeStats.expenses)}</div>
+                        <div class="text-3xl font-bold">${formatCurrency(stats.expenses)}</div>
                     </div>
                     <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-xl p-6 text-white">
                         <div class="text-sm opacity-90 mb-2">Balance</div>
-                        <div class="text-3xl font-bold">${formatCurrency(allTimeStats.balance)}</div>
+                        <div class="text-3xl font-bold">${formatCurrency(stats.balance)}</div>
                     </div>
                     <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-xl p-6 text-white">
                         <div class="text-sm opacity-90 mb-2">Total Tithes</div>
-                        <div class="text-3xl font-bold">${formatCurrency(allTimeStats.totalTithes)}</div>
+                        <div class="text-3xl font-bold">${formatCurrency(stats.totalTithes)}</div>
                     </div>
                 </div>
 
@@ -653,11 +571,11 @@
 
         function renderReports() {
             const months = getMonthOptions();
+            const stats = getMonthlyStats();
             
             return `
                 <div class="bg-white rounded-lg shadow-xl p-6">
                     <h2 class="text-2xl font-bold text-gray-800 mb-6">📈 Monthly Reports</h2>
-                    
                     <div class="mb-6">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Select Month</label>
                         <select id="monthSelect" class="border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-indigo-500 focus:outline-none">
@@ -665,29 +583,21 @@
                             ${months.map(m => `<option value="${m}" ${state.selectedMonth === m ? 'selected' : ''}>${m}</option>`).join('')}
                         </select>
                     </div>
-
-                    ${(() => {
-                        const stats = getMonthlyStats();
-                        return `
-                            <div class="grid md:grid-cols-3 gap-6 mb-6">
-                                <div class="p-6 bg-green-50 rounded-lg">
-                                    <div class="text-gray-600 mb-2">Income</div>
-                                    <div class="text-2xl font-bold text-green-600">${formatCurrency(stats.income)}</div>
-                                </div>
-                                <div class="p-6 bg-red-50 rounded-lg">
-                                    <div class="text-gray-600 mb-2">Expenses</div>
-                                    <div class="text-2xl font-bold text-red-600">${formatCurrency(stats.expenses)}</div>
-                                </div>
-                                <div class="p-6 bg-blue-50 rounded-lg">
-                                    <div class="text-gray-600 mb-2">Balance</div>
-                                    <div class="text-2xl font-bold text-blue-600">${formatCurrency(stats.balance)}</div>
-                                </div>
-                            </div>
-                            <div class="text-center text-gray-600">
-                                ${stats.count} transactions this month
-                            </div>
-                        `;
-                    })()}
+                    <div class="grid md:grid-cols-3 gap-6 mb-6">
+                        <div class="p-6 bg-green-50 rounded-lg">
+                            <div class="text-gray-600 mb-2">Income</div>
+                            <div class="text-2xl font-bold text-green-600">${formatCurrency(stats.income)}</div>
+                        </div>
+                        <div class="p-6 bg-red-50 rounded-lg">
+                            <div class="text-gray-600 mb-2">Expenses</div>
+                            <div class="text-2xl font-bold text-red-600">${formatCurrency(stats.expenses)}</div>
+                        </div>
+                        <div class="p-6 bg-blue-50 rounded-lg">
+                            <div class="text-gray-600 mb-2">Balance</div>
+                            <div class="text-2xl font-bold text-blue-600">${formatCurrency(stats.balance)}</div>
+                        </div>
+                    </div>
+                    <div class="text-center text-gray-600">${stats.count} transactions this month</div>
                 </div>
             `;
         }
@@ -697,7 +607,6 @@
 
             return `
                 <div class="grid md:grid-cols-2 gap-6">
-                    <!-- Add Transaction Form -->
                     <div class="bg-white rounded-lg shadow-xl p-6">
                         <h2 class="text-2xl font-bold text-gray-800 mb-6">➕ Add Transaction</h2>
                         <div class="space-y-4">
@@ -712,7 +621,7 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
                                 <select id="txnCategory" class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-indigo-500 focus:outline-none">
                                     <option value="">Select category...</option>
-                                    ${cats.map(c => `<option value="${c.name}" ${state.form.category === c.name ? 'selected' : ''}>${c.name}</option>`).join('')}
+                                    ${cats.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
                                 </select>
                             </div>
                             <div>
@@ -727,7 +636,7 @@
                                     class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-indigo-500 focus:outline-none">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Description (Optional)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
                                 <input type="text" id="txnDesc" value="${state.form.description}" 
                                     class="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:border-indigo-500 focus:outline-none" 
                                     placeholder="Optional notes...">
@@ -739,11 +648,9 @@
                         </div>
                     </div>
 
-                    <!-- Transactions List -->
                     <div class="bg-white rounded-lg shadow-xl p-6">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-6">📋 All Transactions (${state.transactions.length})</h2>
-                        ${state.transactions.length === 0 ?
-                            '<p class="text-center text-gray-500 py-8">No transactions yet</p>' :
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6">📋 Transactions (${state.transactions.length})</h2>
+                        ${state.transactions.length === 0 ? '<p class="text-center text-gray-500 py-8">No transactions yet</p>' :
                             `<div class="space-y-2 max-h-[600px] overflow-y-auto">
                                 ${state.transactions.map(t => `
                                     <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
@@ -772,7 +679,6 @@
         function renderTithe() {
             return `
                 <div class="grid md:grid-cols-2 gap-6">
-                    <!-- Record Tithe Form -->
                     <div class="bg-white rounded-lg shadow-xl p-6">
                         <h2 class="text-2xl font-bold text-gray-800 mb-6">➕ Record Tithe</h2>
                         <div class="space-y-4">
@@ -805,11 +711,9 @@
                         </div>
                     </div>
 
-                    <!-- Tithe Records -->
                     <div class="bg-white rounded-lg shadow-xl p-6">
                         <h2 class="text-2xl font-bold text-gray-800 mb-6">📖 Tithe Records (${state.tithes.length})</h2>
-                        ${state.tithes.length === 0 ?
-                            '<p class="text-center text-gray-500 py-8">No tithe records yet</p>' :
+                        ${state.tithes.length === 0 ? '<p class="text-center text-gray-500 py-8">No tithe records yet</p>' :
                             `<div class="space-y-2 max-h-[600px] overflow-y-auto">
                                 ${state.tithes.map(t => `
                                     <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100">
