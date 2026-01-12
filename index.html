@@ -55,25 +55,41 @@
     <!-- Main App -->
     <div id="app" class="p-6 hidden"></div>
 
-    <script>
-        // Wait for DOM and scripts to load
-        window.addEventListener('load', function() {
-            document.body.classList.add('loaded');
-            initializeApp();
-        });
+   <script>
+    console.log('🚀 Script started loading...');
 
-        let supabase;
+    // Wait for DOM and scripts to load
+    window.addEventListener('load', function() {
+        console.log('📄 Page loaded');
+        document.body.classList.add('loaded');
+        console.log('✅ Body class added');
+        
+        // Check if Supabase is available
+        if (typeof window.supabase === 'undefined') {
+            console.error('❌ CRITICAL: Supabase library not loaded!');
+            document.body.innerHTML = '<div style="padding: 40px; text-align: center;"><h1 style="color: red;">Error: Supabase library failed to load</h1><p>Check your internet connection and disable ad blockers.</p></div>';
+            return;
+        }
+        
+        console.log('✅ Supabase library detected');
+        initializeApp();
+    });
 
-        function initializeApp() {
+    let supabase;
+
+    function initializeApp() {
+        console.log('🔧 Initializing app...');
+        
+        try {
             // ============================================
             // SUPABASE CONFIGURATION
             // ============================================
             const SUPABASE_URL = 'https://isvqwielxbbmplwpzaob.supabase.co';
             const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzdnF3aWVseGJibXBsd3B6YW9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwNDkyNzIsImV4cCI6MjA4MzYyNTI3Mn0.G3M9RZTfxyguC9-bt-HIVfCAgQR3c0epqfm4w_ureq4';
             
+            console.log('🔑 Creating Supabase client...');
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            
-            console.log('✅ Supabase initialized');
+            console.log('✅ Supabase initialized successfully');
 
             // Check for existing session
             supabase.auth.getSession().then(({ data: { session } }) => {
@@ -81,9 +97,19 @@
                     document.getElementById('loginEmail').value = session.user.email;
                     console.log('Found existing session for:', session.user.email);
                 }
+                console.log('✅ Session check complete');
+            }).catch(err => {
+                console.error('⚠️ Session check error:', err);
             });
+            
+        } catch (error) {
+            console.error('❌ CRITICAL ERROR in initializeApp:', error);
+            alert('Failed to initialize: ' + error.message);
         }
+    }
 
+    // Rest of your code stays the same...
+    // (Keep all the other functions below)
         // ============================================
         // STATE MANAGEMENT
         // ============================================
