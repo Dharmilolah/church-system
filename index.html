@@ -115,10 +115,16 @@
                 return;
             }
 
+            if (!sb) {
+                showError(errorDiv, "System not initialized. Please refresh the page.");
+                return;
+            }
+
             showLoading(true);
 
             try {
                 console.log('Attempting login...');
+                console.log('Supabase client:', sb);
 
                 // Authenticate user
                 const { data: authData, error: authError } = await sb.auth.signInWithPassword({
@@ -152,6 +158,7 @@
                 if (!churchData) throw new Error('User not linked to a church');
 
                 console.log('✅ Church loaded:', churchData);
+                console.log('Church ID:', churchData?.id);
 
                 // Set state - IMPORTANT: Set church BEFORE using it
                 state.church = churchData;
@@ -163,11 +170,15 @@
                     name: authData.user.email.split('@')[0]
                 };
 
+                console.log('State set - church:', state.church);
+                console.log('State set - user:', state.user);
+
                 // Get or create branch
+                console.log('Fetching branches for church_id:', state.church.id);
                 const { data: branches, error: branchError } = await sb
                     .from('branches')
                     .select('*')
-                    .eq('church_id', churchData.id)
+                    .eq('church_id', state.church.id)
                     .limit(1);
 
                 if (branchError) throw branchError;
