@@ -153,7 +153,9 @@
 
                 console.log('✅ Church loaded:', churchData);
 
-                // Set state
+                // Set state - IMPORTANT: Set church BEFORE using it
+                state.church = churchData;
+                
                 state.user = {
                     id: profileData.id,
                     email: authData.user.email,
@@ -161,13 +163,11 @@
                     name: authData.user.email.split('@')[0]
                 };
 
-                state.church = churchData;
-
                 // Get or create branch
                 const { data: branches, error: branchError } = await sb
                     .from('branches')
                     .select('*')
-                    .eq('church_id', state.church.id)
+                    .eq('church_id', churchData.id)
                     .limit(1);
 
                 if (branchError) throw branchError;
