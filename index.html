@@ -130,33 +130,44 @@
 
                 // Get user profile
 // Get user profile
+console.log('Fetching profile for user ID:', authData.user.id);
+
 const { data: userData, error: userError } = await sb
     .from('profiles')
     .select('id, role, church_id')
-    .eq('id', authData.user.id)
-    .single();
+    .eq('id', authData.user.id);
+
+console.log('Profile response - data:', userData);
+console.log('Profile response - error:', userError);
 
 if (userError) throw new Error(`Profile error: ${userError.message}`);
+
+// Get the first result (should only be one)
+const profile = Array.isArray(userData) && userData.length > 0 ? userData[0] : null;
+
+if (!profile) throw new Error('No profile found');
 
 // Get church data separately
 const { data: churchData, error: churchError } = await sb
     .from('churches')
     .select('id, name, church_code')
-    .eq('id', userData.church_id)
+    .eq('id', profile.church_id)
     .single();
+
+console.log('Church data:', churchData);
+console.log('Church error:', churchError);
 
 if (churchError || !churchData) throw new Error('User not linked to a church');
 
 state.user = {
-    id: userData.id,
+    id: profile.id,
     email: authData.user.email,
-    role: userData.role,
+    role: profile.role,
     name: authData.user.email.split('@')[0],
     church: churchData
 };
 
-                state.church = userData.churches;
-
+console.log('✅ Login successful, user:', state.user);
                 // Get or create branch
                 const { data: branches, error: branchError } = await sb
                     .from('branches')
