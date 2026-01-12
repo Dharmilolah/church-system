@@ -50,35 +50,36 @@
     <!-- Main App -->
     <div id="app" class="p-6 hidden"></div>
 
-  <script>
-    // Global Supabase client
-    let sb;  // Changed from 'supabase' to 'sb' to avoid any conflicts
+    <script>
+        // Global Supabase client
+        let sb;
 
-    window.addEventListener('load', function() {
-        console.log('Page loaded');
-        document.body.classList.add('loaded');
-        
-        if (!window.supabase) {
-            alert('Supabase library failed to load');
-            return;
-        }
-        
-        initializeApp();
-    });
-
-    function initializeApp() {
-        const SUPABASE_URL = 'https://isvqwielxbbmplwpzaob.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzdnF3aWVseGJibXBsd3B6YW9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwNDkyNzIsImV4cCI6MjA4MzYyNTI3Mn0.G3M9RZTfxyguC9-bt-HIVfCAgQR3c0epqfm4w_ureq4';
-        
-        sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        console.log('✅ Initialized');
-
-        sb.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
-                document.getElementById('loginEmail').value = session.user.email;
+        window.addEventListener('load', function() {
+            console.log('Page loaded');
+            
+            if (!window.supabase) {
+                alert('Supabase library failed to load');
+                return;
             }
+            
+            initializeApp();
         });
-    }
+
+        function initializeApp() {
+            const SUPABASE_URL = 'https://isvqwielxbbmplwpzaob.supabase.co';
+            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzdnF3aWVseGJibXBsd3B6YW9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwNDkyNzIsImV4cCI6MjA4MzYyNTI3Mn0.G3M9RZTfxyguC9-bt-HIVfCAgQR3c0epqfm4w_ureq4';
+            
+            sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            console.log('✅ Supabase initialized');
+
+            // Check for existing session
+            sb.auth.getSession().then(({ data: { session } }) => {
+                if (session) {
+                    document.getElementById('loginEmail').value = session.user.email;
+                }
+            });
+        }
+
         // ============================================
         // STATE MANAGEMENT
         // ============================================
@@ -119,55 +120,49 @@
             try {
                 console.log('Attempting login...');
 
+                // Authenticate user
                 const { data: authData, error: authError } = await sb.auth.signInWithPassword({
                     email: email,
                     password: password
                 });
 
                 if (authError) throw authError;
-
-                console.log('Auth successful');
+                console.log('✅ Authentication successful');
 
                 // Get user profile
-// Get user profile
-console.log('Fetching profile for user ID:', authData.user.id);
+                const { data: profileData, error: profileError } = await sb
+                    .from('profiles')
+                    .select('id, role, church_id')
+                    .eq('id', authData.user.id)
+                    .single();
 
-const { data: userData, error: userError } = await sb
-    .from('profiles')
-    .select('id, role, church_id')
-    .eq('id', authData.user.id);
+                if (profileError) throw new Error(`Profile error: ${profileError.message}`);
+                if (!profileData) throw new Error('No profile found for this user');
 
-console.log('Profile response - data:', userData);
-console.log('Profile response - error:', userError);
+                console.log('✅ Profile loaded:', profileData);
 
-if (userError) throw new Error(`Profile error: ${userError.message}`);
+                // Get church data
+                const { data: churchData, error: churchError } = await sb
+                    .from('churches')
+                    .select('id, name, church_code')
+                    .eq('id', profileData.church_id)
+                    .single();
 
-// Get the first result (should only be one)
-const profile = Array.isArray(userData) && userData.length > 0 ? userData[0] : null;
+                if (churchError) throw new Error(`Church error: ${churchError.message}`);
+                if (!churchData) throw new Error('User not linked to a church');
 
-if (!profile) throw new Error('No profile found');
+                console.log('✅ Church loaded:', churchData);
 
-// Get church data separately
-const { data: churchData, error: churchError } = await sb
-    .from('churches')
-    .select('id, name, church_code')
-    .eq('id', profile.church_id)
-    .single();
+                // Set state
+                state.user = {
+                    id: profileData.id,
+                    email: authData.user.email,
+                    role: profileData.role,
+                    name: authData.user.email.split('@')[0]
+                };
 
-console.log('Church data:', churchData);
-console.log('Church error:', churchError);
+                state.church = churchData;
 
-if (churchError || !churchData) throw new Error('User not linked to a church');
-
-state.user = {
-    id: profile.id,
-    email: authData.user.email,
-    role: profile.role,
-    name: authData.user.email.split('@')[0],
-    church: churchData
-};
-
-console.log('✅ Login successful, user:', state.user);
                 // Get or create branch
                 const { data: branches, error: branchError } = await sb
                     .from('branches')
@@ -194,15 +189,21 @@ console.log('✅ Login successful, user:', state.user);
                     state.branch = newBranch;
                 }
 
+                console.log('✅ Branch loaded:', state.branch);
+
+                // Load all data
                 await loadData();
 
+                // Show main app
                 document.getElementById('loginModal').classList.add('hidden');
                 document.getElementById('app').classList.remove('hidden');
                 showLoading(false);
                 render();
 
+                console.log('✅ Login complete!');
+
             } catch (error) {
-                console.error('Login failed:', error);
+                console.error('❌ Login failed:', error);
                 showLoading(false);
                 showError(errorDiv, error.message || 'Login failed');
             }
@@ -315,13 +316,11 @@ console.log('✅ Login successful, user:', state.user);
                 if (error) throw error;
 
                 state.transactions.unshift(data);
-                state.form = {
-                    type: 'income',
-                    category: '',
-                    amount: '',
-                    date: new Date().toISOString().split('T')[0],
-                    description: ''
-                };
+                
+                // Reset form
+                document.getElementById('txnAmount').value = '';
+                document.getElementById('txnDesc').value = '';
+                document.getElementById('txnCategory').value = '';
 
                 render();
                 alert('✅ Transaction added!');
@@ -664,6 +663,7 @@ console.log('✅ Login successful, user:', state.user);
                                         <div class="flex-1">
                                             <div class="font-medium">${t.category}</div>
                                             <div class="text-sm text-gray-600">${t.date}</div>
+                                            ${t.description ? `<div class="text-xs text-gray-500">${t.description}</div>` : ''}
                                         </div>
                                         <div class="text-right mr-2">
                                             <div class="font-bold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}">
