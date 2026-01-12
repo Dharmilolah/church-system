@@ -50,40 +50,35 @@
     <!-- Main App -->
     <div id="app" class="p-6 hidden"></div>
 
-    <script>
-        // Global Supabase client - DECLARED ONLY ONCE
-        let supabaseClient;
+  <script>
+    // Global Supabase client
+    let sb;  // Changed from 'supabase' to 'sb' to avoid any conflicts
 
-        // Wait for DOM and scripts to load
-        window.addEventListener('load', function() {
-            console.log('Page loaded');
-            initializeApp();
-        });
-
-        function initializeApp() {
-            console.log('Initializing...');
-            
-            // Check if Supabase loaded
-            if (!window.supabase) {
-                alert('Failed to load Supabase. Please refresh the page.');
-                return;
-            }
-
-            // Initialize Supabase
-            const SUPABASE_URL = 'https://isvqwielxbbmplwpzaob.supabase.co';
-            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzdnF3aWVseGJibXBsd3B6YW9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwNDkyNzIsImV4cCI6MjA4MzYyNTI3Mn0.G3M9RZTfxyguC9-bt-HIVfCAgQR3c0epqfm4w_ureq4';
-            
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            console.log('✅ Supabase initialized');
-
-            // Check for existing session
-            supabaseClient.auth.getSession().then(({ data: { session } }) => {
-                if (session) {
-                    document.getElementById('loginEmail').value = session.user.email;
-                }
-            });
+    window.addEventListener('load', function() {
+        console.log('Page loaded');
+        document.body.classList.add('loaded');
+        
+        if (!window.supabase) {
+            alert('Supabase library failed to load');
+            return;
         }
+        
+        initializeApp();
+    });
 
+    function initializeApp() {
+        const SUPABASE_URL = 'https://isvqwielxbbmplwpzaob.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzdnF3aWVseGJibXBsd3B6YW9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgwNDkyNzIsImV4cCI6MjA4MzYyNTI3Mn0.G3M9RZTfxyguC9-bt-HIVfCAgQR3c0epqfm4w_ureq4';
+        
+        sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log('✅ Initialized');
+
+        sb.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+                document.getElementById('loginEmail').value = session.user.email;
+            }
+        });
+    }
         // ============================================
         // STATE MANAGEMENT
         // ============================================
@@ -124,7 +119,7 @@
             try {
                 console.log('Attempting login...');
 
-                const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
+                const { data: authData, error: authError } = await sb.auth.signInWithPassword({
                     email: email,
                     password: password
                 });
@@ -134,7 +129,7 @@
                 console.log('Auth successful');
 
                 // Get user profile
-                const { data: userData, error: userError } = await supabaseClient
+                const { data: userData, error: userError } = await sb
                     .from('profiles')
                     .select(`
                         id,
@@ -162,7 +157,7 @@
                 state.church = userData.churches;
 
                 // Get or create branch
-                const { data: branches, error: branchError } = await supabaseClient
+                const { data: branches, error: branchError } = await sb
                     .from('branches')
                     .select('*')
                     .eq('church_id', state.church.id)
@@ -173,7 +168,7 @@
                 if (branches && branches.length > 0) {
                     state.branch = branches[0];
                 } else {
-                    const { data: newBranch, error: createError } = await supabaseClient
+                    const { data: newBranch, error: createError } = await sb
                         .from('branches')
                         .insert({
                             church_id: state.church.id,
@@ -207,7 +202,7 @@
         async function loadData() {
             try {
                 // Load categories
-                const { data: cats, error: catsError } = await supabaseClient
+                const { data: cats, error: catsError } = await sb
                     .from('categories')
                     .select('*')
                     .eq('church_id', state.church.id)
@@ -221,7 +216,7 @@
                 }
 
                 // Load transactions
-                const { data: txns, error: txnsError } = await supabaseClient
+                const { data: txns, error: txnsError } = await sb
                     .from('transactions')
                     .select('*')
                     .eq('branch_id', state.branch.id)
@@ -231,7 +226,7 @@
                 state.transactions = txns || [];
 
                 // Load tithes
-                const { data: tithes, error: tithesError } = await supabaseClient
+                const { data: tithes, error: tithesError } = await sb
                     .from('tithe_records')
                     .select('*')
                     .eq('branch_id', state.branch.id)
@@ -241,7 +236,7 @@
                 state.tithes = tithes || [];
 
                 // Load members
-                const { data: members, error: membersError } = await supabaseClient
+                const { data: members, error: membersError } = await sb
                     .from('members')
                     .select('*')
                     .eq('church_id', state.church.id)
@@ -267,7 +262,7 @@
                 { name: 'Maintenance', type: 'expense', church_id: state.church.id }
             ];
 
-            const { data, error } = await supabaseClient
+            const { data, error } = await sb
                 .from('categories')
                 .insert(defaults)
                 .select();
@@ -290,7 +285,7 @@
             }
 
             try {
-                const { data, error } = await supabaseClient
+                const { data, error } = await sb
                     .from('transactions')
                     .insert({
                         church_id: state.church.id,
@@ -327,7 +322,7 @@
             if (!confirm('Delete this transaction?')) return;
 
             try {
-                const { error } = await supabaseClient
+                const { error } = await sb
                     .from('transactions')
                     .delete()
                     .eq('id', id);
@@ -354,7 +349,7 @@
             }
 
             try {
-                const { data, error } = await supabaseClient
+                const { data, error } = await sb
                     .from('tithe_records')
                     .insert({
                         church_id: state.church.id,
@@ -382,7 +377,7 @@
             if (!confirm('Delete this tithe record?')) return;
 
             try {
-                const { error } = await supabaseClient
+                const { error } = await sb
                     .from('tithe_records')
                     .delete()
                     .eq('id', id);
@@ -403,7 +398,7 @@
             if (!name || !name.trim()) return;
 
             try {
-                const { data, error } = await supabaseClient
+                const { data, error } = await sb
                     .from('members')
                     .insert({
                         church_id: state.church.id,
@@ -444,7 +439,7 @@
 
         function logout() {
             if (confirm('Logout?')) {
-                supabaseClient.auth.signOut();
+                sb.auth.signOut();
                 location.reload();
             }
         }
