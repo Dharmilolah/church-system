@@ -188,7 +188,7 @@ export default function Home() {
     return { income, expenses, balance: income - expenses, count: filtered.length }
   }
 
-  const monthOptions = [...new Set(transactions.map(t => t.date.substring(0, 7)))].sort().reverse()
+  const monthOptions = Array.from(new Set(transactions.map(t => t.date.substring(0, 7)))).sort().reverse()
   const filteredCats = categories.filter(c => c.type === txnType)
   const stats = allStats()
   const mStats = monthStats()
