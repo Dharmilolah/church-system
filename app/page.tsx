@@ -230,19 +230,18 @@ export default function Home() {
     </div>
   )
 
-  const navItems: {id:Tab; label:string; icon:string; roles:Role[]}[] = [
-    {id:'dashboard', label:'Dashboard', icon:'📊', roles:['super_admin','admin','accountant','viewer']},
-    {id:'transactions', label:'Transactions', icon:'💰', roles:['super_admin','admin','accountant','viewer']},
-    {id:'tithes', label:'Tithes & Offerings', icon:'📖', roles:['super_admin','admin','accountant','viewer']},
-    {id:'budget', label:'Budget', icon:'📋', roles:['super_admin','admin','accountant']},
-    {id:'payroll', label:'Payroll', icon:'👥', roles:['super_admin','admin']},
-    {id:'loans', label:'Loans & Pledges', icon:'🤝', roles:['super_admin','admin','accountant']},
-    {id:'members', label:'Members', icon:'👤', roles:['super_admin','admin','accountant','viewer']},
-    {id:'branches', label:'Branches', icon:'🏢', roles:['super_admin','admin']},
-    {id:'reports', label:'Reports', icon:'📈', roles:['super_admin','admin','accountant']},
-    {id:'audit', label:'Audit Trail', icon:'🔍', roles:['super_admin']},
-  ].filter(n => n.roles.includes(user.role))
-
+ const navItems = ([
+  {id:'dashboard', label:'Dashboard', icon:'📊', roles:['super_admin','admin','accountant','viewer']},
+  {id:'transactions', label:'Transactions', icon:'💰', roles:['super_admin','admin','accountant','viewer']},
+  {id:'tithes', label:'Tithes & Offerings', icon:'📖', roles:['super_admin','admin','accountant','viewer']},
+  {id:'budget', label:'Budget', icon:'📋', roles:['super_admin','admin','accountant']},
+  {id:'payroll', label:'Payroll', icon:'👥', roles:['super_admin','admin']},
+  {id:'loans', label:'Loans & Pledges', icon:'🤝', roles:['super_admin','admin','accountant']},
+  {id:'members', label:'Members', icon:'👤', roles:['super_admin','admin','accountant','viewer']},
+  {id:'branches', label:'Branches', icon:'🏢', roles:['super_admin','admin']},
+  {id:'reports', label:'Reports', icon:'📈', roles:['super_admin','admin','accountant']},
+  {id:'audit', label:'Audit Trail', icon:'🔍', roles:['super_admin']},
+] as {id:Tab; label:string; icon:string; roles:Role[]}[]).filter(n => n.roles.includes(user.role))
   const roleBadge: Record<Role,string> = {
     super_admin:'badge badge-purple', admin:'badge badge-blue',
     accountant:'badge badge-green', viewer:'badge badge-yellow'
