@@ -90,7 +90,7 @@ export default function Home() {
       if (authError) throw authError
 
       const { data: userData, error: userError } = await supabase
-        .from('profiles').select('id, role, church_id, churches(id, name, code)')
+        .from('profiles').select('id, role, church_id, churches(id, name, church_code)')
         .eq('id', authData.user.id).single()
       if (userError) throw new Error(`Profile error: ${userError.message}`)
       if (!userData?.churches) throw new Error('User not linked to a church.')
